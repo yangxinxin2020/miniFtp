@@ -6,10 +6,4 @@ void str_trim_crlf(char *str);
 void str_split(const char *str , char *left, char *right, char c);
 int str_all_space(const char *str);
 
-
-
-
-
-
-
 #endif
