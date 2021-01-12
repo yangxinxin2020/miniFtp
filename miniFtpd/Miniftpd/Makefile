@@ -1,7 +1,7 @@
 CC=gcc
 CFLAGS=-g
 BIN=miniftpd
-OBJS=miniftp.o sysutil.o session.o ftpproto.o privparent.o
+OBJS=miniftp.o sysutil.o session.o ftpproto.o privparent.o str.o
 LIBS=
 
 $(BIN):$(OBJS)
