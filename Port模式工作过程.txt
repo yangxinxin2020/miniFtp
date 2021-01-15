@@ -8,4 +8,9 @@
    服务器端检测在收到LIST命令之前是否接收到PORT或者PASV命令
   如果没有接收过，则响应425 Use PORT or PASV命令
   如果有接收过，而且是PORT，则服务器端创建数据套接字（bind 20 端口），调用connect主动连接客户端IP与端口，从而建立数据连接
-4、服务器发送150应答给客户端，表示准备就绪，可以开始传输了。
+4、服务器发送150应答给客户端，表示准备就绪，可以开始传输了。150 Here comes the directory listing.
+5、开始传输列表
+6、服务器发送226Directory send OK
+
+
+
