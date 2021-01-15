@@ -11,6 +11,12 @@ void ftp_reply(session_t *sess,int status,const char *text)
 }
 static void do_user(session_t *sess);
 static void do_pass(session_t *sess);
+static void do_syst(session_t *sess);
+static void do_feat(session_t *sess);
+static void do_pwd(session_t *sess);
+static void do_type(session_t *sess);
+static void do_port(session_t *sess);
+static void do_pasv(session_t *sess);
 /*static void do_cwd(session_t *sess);
 static void do_cdup(session_t *sess);
 static void do_quit(session_t *sess);
@@ -50,7 +56,13 @@ typedef struct ftpcmd
 static ftpcmd_t ctrl_cmds[] = 
 {
 	{"USER",do_user},
-	{"PASS",do_pass}	
+	{"PASS",do_pass},
+	{"SYST",do_syst},
+	{"FEAT",do_feat},
+	{"PWD",do_pwd},
+	{"TYPE", do_type},
+	{"PORT",do_port},
+	{"PASV",do_pasv}	
 };
 
 
@@ -193,4 +205,167 @@ static void do_pass(session_t *sess)
 	//230 Login successful.
 	ftp_reply(sess,FTP_LOGINOK,"Login sucessful.");
 	
+}
+// 215 UNIX Type: L8
+static void do_syst(session_t *sess)
+{
+	ftp_reply(sess,FTP_SYSTOK,"UNIX Type: L8");
+}
+
+/*
+[15:01:31] 211-Features:
+[15:01:31]  EPRT
+[15:01:31]  EPSV
+[15:01:31]  MDTM
+[15:01:31]  PASV
+[15:01:31]  REST STREAM
+[15:01:31]  SIZE
+[15:01:31]  TVFS
+[15:01:31]  UTF8
+[15:01:31] 211 End
+
+*/
+static void do_feat(session_t *sess)
+{
+
+	 writen(sess->ctrl_fd, "211-Features:\r\n", strlen("211-Features:\r\n"));
+	 writen(sess->ctrl_fd, " EPRT\r\n", strlen(" EPRT\r\n"));
+	 writen(sess->ctrl_fd, " EPSV\r\n", strlen(" EPSV\r\n"));
+	 writen(sess->ctrl_fd, " MDTM\r\n", strlen(" MDTM\r\n"));
+	 writen(sess->ctrl_fd, " PASV\r\n", strlen(" PASV\r\n"));
+	 writen(sess->ctrl_fd, " REST STREAM\r\n", strlen(" REST STREAM\r\n"));
+	 writen(sess->ctrl_fd, " SIZE\r\n", strlen(" SIZE\r\n"));
+	 writen(sess->ctrl_fd, " TVFS\r\n", strlen(" TVFS\r\n"));
+	 writen(sess->ctrl_fd, " UTF8\r\n", strlen(" UTF8\r\n"));
+	 ftp_reply(sess, FTP_FEAT, "end");
+
+}
+
+//当前的工作目录
+static void do_pwd(session_t *sess)
+{
+	char text[1024] = {0};
+	char dir[1024+1] = {0};
+//char *getcwd(char *buf, size_t size);	
+	getcwd(dir,1024);
+	sprintf(text,"\"%s\"",dir);
+	ftp_reply(sess, FTP_PWDOK, text);
+	
+}
+
+static void do_type(session_t *sess)
+{
+	//A
+	// 200 Switching to ASCII mode.
+	if(strcmp(sess->arg, "A") == 0)
+	{
+		sess->is_ascii = 1;
+		ftp_reply(sess, FTP_TYPEOK, "Switching to ASCII mode.");
+	}
+	//I
+	//200 Switching to Binary mode.
+	else if(strcmp(sess->arg, "I") == 0)
+	{
+		sess->is_ascii = 0;
+		ftp_reply(sess, FTP_TYPEOK, "Switching to Binary mode.");
+	}
+	//500 Unrecognised TYPE command.
+	else
+	{
+		ftp_reply(sess, FTP_BADCMD, "Unrecognised TYPE command.");
+	}
+
+}
+//PORT 192,168,31,250,200,124
+//command:PORT
+//arg:192,168,31,250,200,124
+// int scanf(const char *format, ...);
+// int fscanf(FILE *stream, const char *format, ...);
+// int sscanf(const char *str, const char *format, ...);
+//ip 端口号解析到结构当中
+/*
+1、客户端向服务器发送PORT命令
+     客户端创建数据套接字
+     客户端在套接字上面监听
+    将IP与端口格式化为h1,h2,h3,h4,p1,p2
+2、服务器端以200响应
+    服务器端解析客户端发过来的IP与端口暂时封存起来，以便以后继续建立数据连接。
+3、客户端向服务器发送LIST
+   服务器端检测在收到LIST命令之前是否接收到PORT或者PASV命令
+  如果没有接收过，则响应425 Use PORT or PASV命令
+  如果有接收过，而且是PORT，则服务器端创建数据套接字（bind 20 端口），调用connect主动连接客户端IP与端口，从而建立数据连接
+4、服务器发送150应答给客户端，表示准备就绪，可以开始传输了。150 Here comes the directory listing.
+5、开始传输列表
+6、服务器发送226Directory send OK
+
+*/         
+static void do_port(session_t *sess)
+{
+	unsigned v[6] = {0};
+	sscanf(sess->arg,"%d,%d,%d,%d,%d,%d",&v[0],&v[1],&v[2],&v[3],&v[4],&v[5]);
+	//printf("v[0] = %d,v[1] = %d,v[2] = %d,v[3] = %d,v[4] = %d,v[5] = %d\n",v[0],v[1],v[2],v[3],v[4],v[5]);
+	sess->port_addr = (struct sockaddr_in *)malloc(sizeof(struct sockaddr_in));
+	memset(sess->port_addr,0,sizeof(struct sockaddr_in));
+  
+    sess->port_addr->sin_family = AF_INET;
+	//将ip地址分割为四部分
+	unsigned char *p = (unsigned char*)&sess->port_addr->sin_addr.s_addr;
+	
+	p[0] = v[0];
+	p[1] = v[1];
+	p[2] = v[2];
+	p[3] = v[3];
+	//将端口号分割为两部分
+	p = (unsigned char *)&sess->port_addr->sin_port;
+	
+	p[0] = v[4];
+	p[1] = v[5];
+
+	printf("ip = %s\n",inet_ntoa(sess->port_addr->sin_addr));
+	printf("port = %d\n",ntohs(sess->port_addr->sin_port));
+	//1100100101010001  
+	//1100100101010001 
+}
+//227 Entering Passive Mode (192,168,31,67,117,22).
+/*
+typedef struct session
+{
+	//控制连接
+	uid_t uid;
+	int ctrl_fd;
+	char cmdline[MAX_COMMAND_LINE];
+	char cmd[MAX_COMMAND];
+	char arg[MAX_ARG];
+	//数据连接
+	struct sockaddr_in *port_addr;
+	int pasv_fd;
+	//协议状态
+	int is_ascii;
+}session_t;
+
+*/
+static void do_pasv(session_t *sess)
+{
+	 char *ip ="192.168.31.67";
+	//socket()
+	//bind()
+	//listen()
+	sess->pasv_fd = tcp_server(ip,0);
+	socklen_t socklen = sizeof(sess->pasv_addr);
+	
+    //根据描述符获取套接字信息
+	if(getsockname(sess->pasv_fd,(struct sockaddr *)&sess->pasv_addr,&socklen)<0)
+		ERR_EXIT("getsockname");
+
+	printf("ip = %s\n",inet_ntoa(sess->pasv_addr.sin_addr));
+	printf("port = %d\n",ntohs(sess->pasv_addr.sin_port));
+
+    unsigned short port = ntohs(sess->pasv_addr.sin_port);
+	unsigned char adres[6]={0};
+	sscanf(ip, "%u.%u.%u.%u",&adres[0],&adres[1],&adres[2],&adres[3]);
+	adres[4] = ((port>>8) & 0x00ff);
+	adres[5] = port & 0x00ff;
+	char buf[MAX_BUFFER_SIZE] = {0};
+	sprintf(buf,"Entering Passive Mode (%u,%u,%u,%u,%u,%u)",adres[0],adres[1],adres[2],adres[3],adres[4],adres[5]);
+	ftp_reply(sess, FTP_PASVOK,buf);
 }

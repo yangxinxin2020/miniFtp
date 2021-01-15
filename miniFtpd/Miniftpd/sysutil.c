@@ -11,7 +11,12 @@ int tcp_server(const char *host, unsigned short port)
 	struct sockaddr_in servaddr;
 	memset(&servaddr, 0, sizeof(servaddr));
 	servaddr.sin_family = AF_INET;
-	servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+
+	if(host != NULL)
+		//把一个字符串改为一个IP地址
+		servaddr.sin_addr.s_addr = inet_addr(host);
+	else
+		servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
 	servaddr.sin_port = htons(port);
 
 	int on = 1;

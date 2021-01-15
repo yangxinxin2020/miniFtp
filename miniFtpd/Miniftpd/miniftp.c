@@ -8,10 +8,31 @@ int main(int argc,char *argv[])
 		fprintf(stderr,"miniFtpd :must be started ad root!\n");
 		exit(EXIT_FAILURE);
 	}
-		
+/*
+typedef struct session
+{
+	//控制连接
+	uid_t uid;
+	int ctrl_fd;
+	char cmdline[MAX_COMMAND_LINE];
+	char cmd[MAX_COMMAND];
+	char arg[MAX_ARG];
+	//数据连接
+	struct sockaddr_in *port_addr;
+	int pasv_fd;
+	//协议状态
+	int is_ascii;
+}session_t;
+*/		
 	session_t sess = 
 	{
-		-1,-1,0,0,0
+		-1,-1,0,0,
+		//数据连接
+		0,
+		0,
+		//协议状态
+		-1,
+		0
 	};
 	//socket()
 	//bind()

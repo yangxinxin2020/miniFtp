@@ -11,7 +11,12 @@ typedef struct session
 	char cmdline[MAX_COMMAND_LINE];
 	char cmd[MAX_COMMAND];
 	char arg[MAX_ARG];
-	
+	//数据连接
+	struct sockaddr_in *port_addr;
+	struct sockaddr_in pasv_addr;
+	int pasv_fd;
+	//协议状态
+	int is_ascii;
 }session_t;
 
 void begin_session(session_t *sess);
